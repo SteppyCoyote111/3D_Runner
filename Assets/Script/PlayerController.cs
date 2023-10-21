@@ -1,55 +1,108 @@
-using Unity.VisualScripting;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
+    public bool isDebug = true;
+    public bool AndroidController = false;
+    
     public enum Swipe
     {
         Middle, Left, Right, Abroad    
     }
     
-    public float MoveSpeed = 5.0f;
-    public float JumpForce = 10.0f;
-    public float SlideDuration = 2.0f;
-    private bool _isSliding = false;
-    private bool _isEndPointSwipe = false;
+    public float MoveSpeed = 10.0f;
+    public float JumpForce = 350.0f;
+   
+    public bool isPermissionToSwipe = true;
+    public bool isSliding = false;
+
+    public Vector2 LeftPoint = new Vector2(-3, 0);
+    public Vector2 MiddlePoint = new Vector2(0, 0);
+    public Vector2 RightPoint = new Vector2(3, 0);
+    
     private Vector3 _targetPosition;
-    private Vector3 _startPosition;
-    private Vector3 _endPosition;
     private bool _isGrounded = true;
     private bool _isSwiping = false;
-    private Vector3 _swipeDirection;
-    public float _swipeDistance = 1.0f; // Настраиваемое ограничение по перемещению для свайпа.
-
-    public bool isDebug = true;
-    public bool isPermissionToSwipe = true;
-     
-    public Swipe CurrentSwipe;
-
-    public Vector2 LeftPoint = new Vector2(-2, 0);
-    public Vector2 MiddlePoint = new Vector2(0, 0);
-    public Vector2 RightPoint = new Vector2(2, 0);
-    
+    private Swipe CurrentSwipe;
+    //inside class
+    private Vector2 firstPressPos;
+    private Vector2 secondPressPos;
+    private Vector2 currentSwipe;
+  
     void Start()
     {
         _targetPosition = transform.position;
-        _startPosition = transform.position;
+#if UNITY_ANDROID
+AndroidController = true;
+#else
+        AndroidController = false;
+#endif
     }
 
     void Update()
     {
-        SwipeWindow();
+        _isGrounded = CheckGrounded();
+        SwipeInCurrentPlatform();
         CheckInSwipePosition();
         if (CheckInCritPoint())
         {
             float newPosX = Vector3.MoveTowards(transform.position, _targetPosition, MoveSpeed * Time.deltaTime).x;
             transform.position = new Vector3(newPosX, transform.position.y);
-            isPermissionToSwipe = false;
         }
-        else
-            isPermissionToSwipe = true;
     }
 
+    private void SwipeInCurrentPlatform()
+    {
+        if (AndroidController)
+            SwipeAndroid();
+        else
+            SwipeWindow();
+    }
+
+    private void SwipeWindow()
+    {
+        if(Input.GetMouseButtonDown(0))
+        {
+            //save began touch 2d point
+            firstPressPos = new Vector2(Input.mousePosition.x,Input.mousePosition.y);
+        }
+        if(Input.GetMouseButtonUp(0))
+        {
+            //save ended touch 2d point
+            secondPressPos = new Vector2(Input.mousePosition.x,Input.mousePosition.y);
+       
+            //create vector from the two points
+            currentSwipe = new Vector2(secondPressPos.x - firstPressPos.x, secondPressPos.y - firstPressPos.y);
+           
+            //normalize the 2d vector
+            currentSwipe.Normalize();
+ 
+            //swipe upwards
+            if(currentSwipe.y > 0 && currentSwipe.x > -0.5f && currentSwipe.x < 0.5f)
+            {
+                Debug.Log("up swipe");
+                PerformJump();
+            }
+            //swipe down
+            if(currentSwipe.y < 0 && currentSwipe.x > -0.5f && currentSwipe.x < 0.5f)
+            {
+                Debug.Log("down swipe");
+            }
+            //swipe left
+            if(currentSwipe.x < 0 && currentSwipe.y > -0.5f && currentSwipe.y < 0.5f)
+            {
+                Debug.Log("left swipe");
+                ChangesStateSwipe(true);
+            }
+            //swipe right
+            if(currentSwipe.x > 0 && currentSwipe.y > -0.5f && currentSwipe.y < 0.5f)
+            {
+                Debug.Log("right swipe");
+                ChangesStateSwipe(false);
+            }
+        }
+    }
+    
     private bool CheckInCritPoint()
     {
         Swipe swipe = CurrentSwipe;
@@ -95,7 +148,7 @@ public class PlayerController : MonoBehaviour
         }
     }
     
-    void PerformJump()
+  private void PerformJump()
     {
         if (_isGrounded)
         {
@@ -104,26 +157,10 @@ public class PlayerController : MonoBehaviour
         }
     }
 
-    void PerformSwipe()
-    {
-        float swipeX = Input.GetAxis("Mouse X");
-        //Vector3 normalizedVector3 = _endPosition - _startPosition;
-        Debug.LogError("swipeX " + swipeX);
-        if (swipeX == 0 || !isPermissionToSwipe)
-            return;
-        if (swipeX > 0)
-            _targetPosition = _startPosition + new Vector3(_swipeDistance,0);
-        else
-            _targetPosition = _startPosition + new Vector3(-_swipeDistance,0);
-        
-        isPermissionToSwipe = false;
-        if (isDebug) Debug.Log("Performing Swipe");
-    }
-
-    bool CheckGrounded()
+   private bool CheckGrounded()
     {
         float rayLength = 1.0f;
-        Vector3 rayStart = transform.position + Vector3.up * 0.1f;
+        Vector3 rayStart = transform.position;
 
         if (Physics.Raycast(rayStart, Vector3.down, rayLength))
         {
@@ -137,13 +174,7 @@ public class PlayerController : MonoBehaviour
         }
     }
     
-    
-    //inside class
-    Vector2 firstPressPos;
-    Vector2 secondPressPos;
-    Vector2 currentSwipe;
- 
-    public void SwipeAndroid()
+    private void SwipeAndroid()
     {
         if(Input.touches.Length > 0)
         {
@@ -168,6 +199,7 @@ public class PlayerController : MonoBehaviour
                 if(currentSwipe.y > 0 && currentSwipe.x > -0.5f &&currentSwipe.x < 0.5f)
                 {
                     Debug.Log("up swipe");
+                    PerformJump();
                 }
                 //swipe down
                 if(currentSwipe.y < 0 && currentSwipe.x > -0.5f && currentSwipe.x < 0.5f)
@@ -178,66 +210,20 @@ public class PlayerController : MonoBehaviour
                 if(currentSwipe.x < 0 && currentSwipe.y > -0.5f && currentSwipe.y < 0.5f)
                 {
                     Debug.Log("left swipe");
+                    ChangesStateSwipe(true);
                 }
                 //swipe right
                 if(currentSwipe.x > 0 && currentSwipe.y > -0.5f && currentSwipe.y < 0.5f)
                 {
                     Debug.Log("right swipe");
+                    ChangesStateSwipe(false);
                 }
             }
         }
     }
     
-    public void SwipeWindow()
-    {
-        if(Input.GetMouseButtonDown(0))
-        {
-            //save began touch 2d point
-            firstPressPos = new Vector2(Input.mousePosition.x,Input.mousePosition.y);
-            _startPosition = transform.position;
-        }
-        if(Input.GetMouseButtonUp(0))
-        {
-            //save ended touch 2d point
-            secondPressPos = new Vector2(Input.mousePosition.x,Input.mousePosition.y);
-       
-            //create vector from the two points
-            currentSwipe = new Vector2(secondPressPos.x - firstPressPos.x, secondPressPos.y - firstPressPos.y);
-           
-            //normalize the 2d vector
-            currentSwipe.Normalize();
- 
-            //swipe upwards
-            if(currentSwipe.y > 0 && currentSwipe.x > -0.5f && currentSwipe.x < 0.5f)
-            {
-                Debug.Log("up swipe");
-                PerformJump();
-            }
-            //swipe down
-            if(currentSwipe.y < 0 && currentSwipe.x > -0.5f && currentSwipe.x < 0.5f)
-            {
-                Debug.Log("down swipe");
-            }
-            //swipe left
-            if(currentSwipe.x < 0 && currentSwipe.y > -0.5f && currentSwipe.y < 0.5f)
-            {
-                Debug.Log("left swipe");
-                ChangesStateSwipe(true);
-            }
-            //swipe right
-            if(currentSwipe.x > 0 && currentSwipe.y > -0.5f && currentSwipe.y < 0.5f)
-            {
-                Debug.Log("right swipe");
-                ChangesStateSwipe(false);
-            }
-        }
-    }
-
     private void ChangesStateSwipe(bool isLeftPos)
     {
-        if (!isPermissionToSwipe)
-            return;
-
         if (isLeftPos)
         {
             if (CurrentSwipe == Swipe.Middle)
