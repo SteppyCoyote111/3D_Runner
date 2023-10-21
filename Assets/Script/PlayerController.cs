@@ -1,10 +1,11 @@
 using UnityEngine;
 
-public class PlayerController : MonoBehaviour
+public class PlayerController : MonoBehaviourSingleton<PlayerController>
 {
     public bool isDebug = true;
     public bool AndroidController = false;
-    
+    public Swipe SwipeState { get; private set; }
+
     public enum Swipe
     {
         Middle, Left, Right, Abroad    
@@ -15,20 +16,23 @@ public class PlayerController : MonoBehaviour
    
     public bool isPermissionToSwipe = true;
     public bool isSliding = false;
-
-    public Vector2 LeftPoint = new Vector2(-3, 0);
-    public Vector2 MiddlePoint = new Vector2(0, 0);
-    public Vector2 RightPoint = new Vector2(3, 0);
     
     private Vector3 _targetPosition;
     private bool _isGrounded = true;
     private bool _isSwiping = false;
-    private Swipe CurrentSwipe;
+   
     //inside class
     private Vector2 firstPressPos;
     private Vector2 secondPressPos;
     private Vector2 currentSwipe;
-  
+    private BaseData _baseData;
+
+    private void Awake()
+    {
+        //TODO adad
+        _baseData = Resources.Load("BaseData") as BaseData;
+    }
+
     void Start()
     {
         _targetPosition = transform.position;
@@ -38,6 +42,8 @@ AndroidController = true;
         AndroidController = false;
 #endif
     }
+    
+    
 
     void Update()
     {
@@ -105,7 +111,7 @@ AndroidController = true;
     
     private bool CheckInCritPoint()
     {
-        Swipe swipe = CurrentSwipe;
+        Swipe swipe = SwipeState;
         float posX = transform.position.x;
         float targetX = _targetPosition.x;
         if (swipe == Swipe.Left)
@@ -120,32 +126,22 @@ AndroidController = true;
 
     private void CheckInSwipePosition()
     {
-        if (CurrentSwipe == Swipe.Left)
+        if (SwipeState == Swipe.Abroad)
         {
-            _targetPosition = LeftPoint;
-        }
-        else if (CurrentSwipe == Swipe.Right)
-        {
-            _targetPosition = RightPoint;
-        }
-        else if (CurrentSwipe == Swipe.Middle)
-        {
-            _targetPosition = MiddlePoint;
-        }
-        else if (CurrentSwipe == Swipe.Abroad)
-        {
-            if (transform.position.x >= RightPoint.x)
+            if (transform.position.x >= _baseData.RightPoint.x)
             {
-                _targetPosition = RightPoint;
-                CurrentSwipe = Swipe.Right;
+                _targetPosition = _baseData.RightPoint;
+                SwipeState = Swipe.Right;
             }
-            else if (transform.position.x <= LeftPoint.x)
+            else if (transform.position.x <= _baseData.LeftPoint.x)
             {
-                _targetPosition = LeftPoint;
-                CurrentSwipe = Swipe.Left;
+                _targetPosition = _baseData.LeftPoint;
+                SwipeState = Swipe.Left;
             }
             Debug.LogError("Added Collision Point");
         }
+        else
+             _targetPosition =  GetPositionInCurrentState.GetPosBaseData(_baseData, SwipeState);
     }
     
   private void PerformJump()
@@ -226,21 +222,21 @@ AndroidController = true;
     {
         if (isLeftPos)
         {
-            if (CurrentSwipe == Swipe.Middle)
-                CurrentSwipe = Swipe.Left;
-            else if (CurrentSwipe == Swipe.Left)
-                CurrentSwipe = Swipe.Abroad;
+            if (SwipeState == Swipe.Middle)
+                SwipeState = Swipe.Left;
+            else if (SwipeState == Swipe.Left)
+                SwipeState = Swipe.Abroad;
             else
-                CurrentSwipe = Swipe.Middle;
+                SwipeState = Swipe.Middle;
         }
         else
         {
-            if (CurrentSwipe == Swipe.Middle)
-                CurrentSwipe = Swipe.Right;
-            else if (CurrentSwipe == Swipe.Right)
-                CurrentSwipe = Swipe.Abroad;
+            if (SwipeState == Swipe.Middle)
+                SwipeState = Swipe.Right;
+            else if (SwipeState == Swipe.Right)
+                SwipeState = Swipe.Abroad;
             else
-                CurrentSwipe = Swipe.Middle;
+                SwipeState = Swipe.Middle;
         }
         if (isDebug) Debug.Log("MovePlayer Swipe");        
     }
