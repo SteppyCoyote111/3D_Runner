@@ -1,10 +1,11 @@
+using System;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviourSingleton<PlayerController>
 {
     public bool isDebug = true;
     public bool AndroidController = false;
-    public Swipe SwipeState { get; private set; }
+   [field: SerializeField] public Swipe SwipeState { get; private set; }
 
     public enum Swipe
     {
@@ -16,6 +17,7 @@ public class PlayerController : MonoBehaviourSingleton<PlayerController>
    
     public bool isPermissionToSwipe = true;
     public bool isSliding = false;
+    public float MovePosZ;
     
     private Vector3 _targetPosition;
     private bool _isGrounded = true;
@@ -26,11 +28,14 @@ public class PlayerController : MonoBehaviourSingleton<PlayerController>
     private Vector2 secondPressPos;
     private Vector2 currentSwipe;
     private BaseData _baseData;
+    private Rigidbody _rb;
 
+    
     private void Awake()
     {
         //TODO adad
         _baseData = Resources.Load("BaseData") as BaseData;
+        _rb = GetComponent<Rigidbody>();
     }
 
     void Start()
@@ -42,19 +47,39 @@ AndroidController = true;
         AndroidController = false;
 #endif
     }
-    
-    
 
     void Update()
     {
+      
+    }
+    
+    
+    
+
+    private void ChangesMovePlayer()
+    {
+        float newPosX = 0;
+
+        if (CheckInCritPoint())
+        {
+            newPosX = Vector3.MoveTowards(transform.position, _targetPosition, MoveSpeed).x;
+            transform.position = new Vector3(newPosX, transform.position.y, transform.position.z );
+        }
+    }
+    
+    
+
+    private void FixedUpdate()
+    {
+        if(!GameManager.Instance.IsPlayGame)
+            return;
+        
         _isGrounded = CheckGrounded();
         SwipeInCurrentPlatform();
         CheckInSwipePosition();
-        if (CheckInCritPoint())
-        {
-            float newPosX = Vector3.MoveTowards(transform.position, _targetPosition, MoveSpeed * Time.deltaTime).x;
-            transform.position = new Vector3(newPosX, transform.position.y);
-        }
+        ChangesMovePlayer();
+
+        transform.position += new Vector3(0,0, MovePosZ);
     }
 
     private void SwipeInCurrentPlatform()
@@ -148,8 +173,7 @@ AndroidController = true;
     {
         if (_isGrounded)
         {
-            Rigidbody rb = GetComponent<Rigidbody>();
-            rb.AddForce(Vector3.up * JumpForce, ForceMode.Impulse);
+            _rb.AddForce(Vector3.up * JumpForce, ForceMode.Impulse);
         }
     }
 
